@@ -1,3 +1,6 @@
 [submodule "apps/benx"]
 	path = apps/benx
 	url = git@github.com:sschneider1207/benx
+[submodule "apps/torrex"]
+	path = apps/torrex
+	url = git@github.com:sschneider1207/torrex
