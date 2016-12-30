@@ -4,3 +4,6 @@
 [submodule "apps/torrex"]
 	path = apps/torrex
 	url = git@github.com:sschneider1207/torrex
+[submodule "apps/tracker_statem"]
+	path = apps/tracker_statem
+	url = git@github.com:sschneider1207/tracker_statem
