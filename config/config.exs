@@ -15,3 +15,5 @@ import_config "../apps/*/config/config.exs"
 #       level: :info,
 #       format: "$date $time [$level] $metadata$message\n",
 #       metadata: [:user_id]
+config :logger, :console,
+  metadata: [:pid, :url, :trackerid, :interval, :request_num, :state, :conn_id]

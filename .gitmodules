@@ -7,3 +7,6 @@
 [submodule "apps/tracker_statem"]
 	path = apps/tracker_statem
 	url = git@github.com:sschneider1207/tracker_statem
+[submodule "apps/tracker_client"]
+	path = apps/tracker_client
+	url = git@github.com:sschneider1207/tracker_client
