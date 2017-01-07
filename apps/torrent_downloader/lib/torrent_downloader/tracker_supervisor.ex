@@ -1,24 +1,33 @@
+alias Experimental.DynamicSupervisor
 defmodule TorrentDownloader.TrackerSupervisor do
   @moduledoc """
   Supervisor for tracker processes.
   """
-  use Supervisor
-  alias TorrentDownloader.{Torrent, Tracker}
+  use DynamicSupervisor
+  alias TorrentDownloader.{NameRegistry, Torrent, Tracker}
 
   @doc """
   Starts a new TrackerSupervisor process.
   """
-  @spec start_link(Torrent.info_hash, [String.t], Keyword.t) :: Supervisor.on_start
-  def start_link(info_hash, tracker_urls, params) do
-    Supervisor.start_link(__MODULE__, [info_hash, tracker_urls, params])
+  @spec start_link(Torrent.info_hash) :: Supervisor.on_start
+  def start_link(info_hash) do
+    DynamicSupervisor.start_link(__MODULE__, [info_hash], [name: NameRegistry.tracker_supervisor_via(info_hash)])
+  end
+
+  @doc """
+  Starts a new supervised tracker.
+  """
+  @spec start_child(Torrent.info_hash, [String.t], Keyword.t) :: Supervisor.on_child_start
+  def start_child(info_hash, tracker_url, params) do
+    DynamicSupervisor.start_child(NameRegistry.tracker_supervisor_via(info_hash), [tracker_url, params])
   end
 
   @doc false
-  def init([info_hash, tracker_urls, params]) do
-    children = for {tracker_url, i} <- Enum.with_index(tracker_urls) do
-      worker(Tracker, [info_hash, tracker_url, params], id: Module.concat(Tracker, to_string(i)))
-    end
+  def init([info_hash]) do
+    children = [
+      worker(Tracker, [info_hash])
+    ]
 
-    supervise(children, strategy: :one_for_one)
+    {:ok, children, strategy: :one_for_one}
   end
 end

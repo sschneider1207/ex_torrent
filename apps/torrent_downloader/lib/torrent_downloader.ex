@@ -1,6 +1,6 @@
 defmodule TorrentDownloader do
   use Application
-  alias TorrentDownloader.{Config, WatcherPipeline, TrackerRegistry, TorrentManager, TorrentRegistry, TorrentsSupervisor}
+  alias TorrentDownloader.{Config, NameRegistry, TrackerRegistry, TorrentManager, TorrentsSupervisor}
 
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
@@ -11,7 +11,7 @@ defmodule TorrentDownloader do
     children = [
       worker(Config, [main_dir]),
       worker(TorrentManager, []),
-      supervisor(TorrentRegistry, [[listeners: [TorrentManager]]]),
+      supervisor(NameRegistry, [[listeners: [TorrentManager]]]),
       supervisor(TrackerRegistry, [[]]),
       supervisor(TorrentsSupervisor, []),
     ]

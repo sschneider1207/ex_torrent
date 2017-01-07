@@ -27,10 +27,7 @@ defmodule TorrentDownloader.TrackerRegistry do
   """
   @spec start_announcing(Torrent.info_hash) :: :ok
   def start_announcing(info_hash) do
-    Registry.lookup(__MODULE__, info_hash)
-    |> Enum.map(fn {pid, _val} -> pid end)
-    |> Enum.each(&Tracker.start_announcing/1)
-    :ok
+    broadcast(info_hash, &Tracker.start_announcing/1)
   end
 
   @doc """
@@ -38,9 +35,20 @@ defmodule TorrentDownloader.TrackerRegistry do
   """
   @spec stop_announcing(Torrent.info_hash) :: :ok
   def stop_announcing(info_hash) do
+    broadcast(info_hash, &Tracker.stop_announcing/1)
+  end
+
+  defp broadcast(info_hash, function) do
     Registry.lookup(__MODULE__, info_hash)
     |> Enum.map(fn {pid, _val} -> pid end)
-    |> Enum.each(&Tracker.stop_announcing/1)
+    |> Enum.each(function)
     :ok
+  end
+
+  def peers(info_hash) do
+    Registry.lookup(__MODULE__, info_hash)
+    |> Enum.map(fn {pid, _val} -> pid end)
+    |> Enum.map(&Tracker.peers/1)
+    |> List.flatten()
   end
 end

@@ -3,7 +3,7 @@ defmodule TorrentDownloader.TorrentManager do
   Manages loaded torrents.  Supports adding tags to torrents and retrieving by tag.
   """
   use GenServer
-  alias TorrentDownloader.{Config, Torrent, TorrentRegistry, TorrentsSupervisor}
+  alias TorrentDownloader.{Config, NameRegistry, Torrent, TorrentsSupervisor}
   require Logger
 
   defmodule State do
@@ -44,7 +44,7 @@ defmodule TorrentDownloader.TorrentManager do
   @spec run(Torrent.info_hash) ::
     :ok |
     {:error, reason} when reason:
-      :already_running | 
+      :already_running |
       :upload_limit_reached |
       :download_limit_reached
   def run(info_hash) do
@@ -149,12 +149,15 @@ defmodule TorrentDownloader.TorrentManager do
     Logger.debug("started saved torrents")
     {:noreply, state}
   end
-  def handle_info({:register, TorrentRegistry, info_hash, pid, nil}, state) do
+  def handle_info({:register, NameRegistry, {:torrent, info_hash}, pid, nil}, state) do
     mon = Process.monitor(pid)
     :ets.insert(__MODULE__, {info_hash, pid, mon})
     {:noreply, state}
   end
-  def handle_info({:unregister, TorrentRegistry, _info_hash, _pid}, state) do
+  def handle_info({:register, NameRegistry, _name, _pid, nil}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:unregister, NameRegistry, _name, _pid}, state) do
     {:noreply, state}
   end
   def handle_info({:DOWN, mon, :process, pid, _reason}, state) do

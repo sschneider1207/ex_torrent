@@ -1,6 +1,9 @@
 defmodule TorrentDownloader.TorrentSupervisor do
+  @moduledoc """
+  Process that supervises any process related to a specific torrent.
+  """
   use Supervisor
-  alias TorrentDownloader.{Torrent, TrackerSupervisor, Tracker}
+  alias TorrentDownloader.{PeerPool, PeerSupervisor, Torrent, TrackerSupervisor}
   require Logger
 
   @doc """
@@ -8,26 +11,29 @@ defmodule TorrentDownloader.TorrentSupervisor do
   """
   @spec start_link(Torrent.peer_id, String.t, String.t) :: Supervisor.on_start
   def start_link(peer_id, torrent_path, completion_dir) do
-    Supervisor.start_link(__MODULE__, [peer_id, torrent_path, completion_dir])
+    case Torrex.decode(torrent_path) do
+      {:ok, torrent} ->
+        Supervisor.start_link(__MODULE__, [peer_id, torrent, completion_dir])
+      err ->
+        err
+    end
   end
 
   @doc false
-  def init([peer_id, torrent_path, completion_dir]) do
-    me = self()
+  def init([peer_id, torrent, completion_dir]) do
+    info_hash = info_hash(torrent["info"])
     children = [
-      worker(Torrent, [torrent_path, completion_dir, peer_id, me])
+      supervisor(TrackerSupervisor, [info_hash]),
+      supervisor(PeerSupervisor, [info_hash, peer_id]),
+      worker(Torrent, [info_hash, torrent, completion_dir, peer_id]),
+      worker(PeerPool, [info_hash, peer_id]),
     ]
 
-    supervise(children, strategy: :rest_for_one)
+    supervise(children, strategy: :one_for_all)
   end
 
-  @doc """
-  Adds a `TorrentDownloader.TrackerSupervisor` process to the given supervisor's
-  children list.  This process supervises the individual tracker processes.
-  """
-  @spec start_trackers(Supervisor.supervisor, Torrent.info_hash, [String.t], Keyword.t) :: Supervisor.on_start_child
-  def start_trackers(sup, info_hash, tracker_urls, params) do
-    spec = supervisor(TrackerSupervisor, [info_hash, tracker_urls, params])
-    Supervisor.start_child(sup, spec)
+  defp info_hash(info) do
+    encoded = Benx.encode(info)
+    :crypto.hash(:sha, encoded)
   end
 end

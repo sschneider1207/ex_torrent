@@ -3,7 +3,8 @@ defmodule TorrentDownloader.Tracker do
   Process representing the state of a tracker for a specific torrent.
   """
   @behaviour :gen_statem
-  alias TorrentDownloader.{Torrent, TrackerRegistry}
+  alias TorrentDownloader.{NameRegistry, Torrent, TrackerRegistry}
+  alias TrackerClient.Peer
 
   defmodule Data do
     @moduledoc false
@@ -51,7 +52,7 @@ defmodule TorrentDownloader.Tracker do
   """
   @spec start_link(Torrent.info_hash, String.t, Keyword.t) :: :gen_statem.start_ret
   def start_link(info_hash, url, params) do
-    :gen_statem.start_link(__MODULE__, [info_hash, url, params], [])
+    :gen_statem.start_link(NameRegistry.tracker_via(info_hash, url), __MODULE__, [info_hash, url, params], [])
   end
 
   @doc """
@@ -70,6 +71,14 @@ defmodule TorrentDownloader.Tracker do
     :gen_statem.cast(pid, :stop_announcing)
   end
 
+  @doc """
+  Gets the list of peers from a tracker.
+  """
+  @spec peers(pid) :: [Peer.t]
+  def peers(pid) do
+    :gen_statem.call(pid, :peers)
+  end
+
   @doc false
   def init([info_hash, url, params]) do
     {:ok, _pid} = TrackerRegistry.register(info_hash, url)
@@ -77,6 +86,9 @@ defmodule TorrentDownloader.Tracker do
     {:ok, :not_started, data}
   end
 
+  def handle_event({:call, from}, :peers, _state, data) do
+    {:keep_state_and_data, {:reply, from, data.peers}}
+  end
   def handle_event(:cast, :start_announcing, :not_started, data) do
     case announce(data, :started) do
       {:ok, announcement} ->

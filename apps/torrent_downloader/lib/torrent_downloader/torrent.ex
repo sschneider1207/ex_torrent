@@ -3,7 +3,7 @@ defmodule TorrentDownloader.Torrent do
   Process for managing a torrent file.
   """
   @behaviour :gen_statem
-  alias TorrentDownloader.{Config, TorrentRegistry, TorrentSupervisor, TrackerRegistry}
+  alias TorrentDownloader.{Config, NameRegistry, TorrentSupervisor, TrackerRegistry, TrackerSupervisor}
 
   defmodule Data do
     @moduledoc false
@@ -36,9 +36,9 @@ defmodule TorrentDownloader.Torrent do
   @doc """
   Starts a new torrent state machine.
   """
-  @spec start_link(String.t, String.t, peer_id, pid) :: :gen_statem.start_ret()
-  def start_link(torrent_path, completion_dir, peer_id, parent) do
-    :gen_statem.start_link(__MODULE__, [torrent_path, completion_dir, peer_id, parent], [{:debug, [:trace, :debug]}])
+  @spec start_link(info_hash, map, String.t, peer_id) :: :gen_statem.start_ret()
+  def start_link(info_hash, torrent, completion_dir, peer_id) do
+    :gen_statem.start_link(NameRegistry.torrent_via(info_hash), __MODULE__, [info_hash, torrent, completion_dir, peer_id], [])# [{:debug, [:trace, :debug]}])
   end
 
   @doc """
@@ -46,7 +46,7 @@ defmodule TorrentDownloader.Torrent do
   """
   @spec run(info_hash) :: :ok
   def run(info_hash) do
-    :gen_statem.cast(TorrentRegistry.via(info_hash), :run)
+    :gen_statem.cast(NameRegistry.torrent_via(info_hash), :run)
   end
 
   @doc """
@@ -54,7 +54,7 @@ defmodule TorrentDownloader.Torrent do
   """
   @spec stop(info_hash) :: :ok
   def stop(info_hash) do
-    :gen_statem.cast(TorrentRegistry.via(info_hash), :stop)
+    :gen_statem.cast(NameRegistry.torrent_via(info_hash), :stop)
   end
 
   @doc """
@@ -62,7 +62,7 @@ defmodule TorrentDownloader.Torrent do
   """
   @spec stats(info_hash) :: Keyword.t
   def stats(info_hash) do
-    :gen_statem.call(TorrentRegistry.via(info_hash), :stats)
+    :gen_statem.call(NameRegistry.torrent_via(info_hash), :stats)
   end
 
   @doc """
@@ -70,34 +70,30 @@ defmodule TorrentDownloader.Torrent do
   """
   @spec status(info_hash) :: {:running | :not_running, :leeching | :seeding}
   def status(info_hash) do
-    :gen_statem.call(TorrentRegistry.via(info_hash), :status)
+    :gen_statem.call(NameRegistry.torrent_via(info_hash), :status)
   end
 
   @doc false
-  def init([torrent_path, completion_dir, peer_id, parent]) do
-    with {:ok, torrent} <- Torrex.decode(torrent_path),
-         info_hash = info_hash(torrent["info"]),
-         tracker_urls = trackers(torrent),
+  def init([info_hash, torrent, completion_dir, peer_id]) do
+    with tracker_urls = trackers(torrent),
          {:ok, total_size} <- total_size(torrent["info"]),
          in_progress_name = in_progress_name(info_hash),
          in_progress_file = Path.join(completion_dir, in_progress_name),
          :ok <- File.touch!(in_progress_file),
          {:ok, %{size: downloaded}} <- File.stat(in_progress_file),
          left = total_size - downloaded,
-         :yes <- TorrentRegistry.register(info_hash),
          data = Data.new([
            torrent: torrent,
-           torrent_path: torrent_path,
+           info_hash: info_hash,
            completion_dir: completion_dir,
            peer_id: peer_id,
            in_progress_file: in_progress_file,
-           info_hash: info_hash,
            tracker_urls: tracker_urls,
            total_size: total_size,
            downloaded: downloaded,
            left: left])
     do
-      send(self(), {:init_trackers, parent})
+      send(self(), :init_trackers)
       {:ok, :trackers_not_started, data}
     else
       :no ->
@@ -105,11 +101,6 @@ defmodule TorrentDownloader.Torrent do
       {:error, reason} ->
         {:stop, {:error, reason}}
     end
-  end
-
-  defp info_hash(info) do
-    encoded = Benx.encode(info)
-    :crypto.hash(:sha, encoded)
   end
 
   defp trackers(info) do
@@ -170,12 +161,12 @@ defmodule TorrentDownloader.Torrent do
     TrackerRegistry.stop_announcing(data.info_hash)
     {:next_state, :not_running, data}
   end
-  def handle_event(:info, {:init_trackers, parent}, :trackers_not_started, data) do
+  def handle_event(:info, :init_trackers, :trackers_not_started, data) do
     params = [
       peer_id: data.peer_id,
       port: Config.get(:port)
     ]
-    {:ok, _pid} = TorrentSupervisor.start_trackers(parent, data.info_hash, data.tracker_urls, params)
+    Enum.each(data.tracker_urls, &TrackerSupervisor.start_child(data.info_hash, &1, params))
     {:next_state, :not_running, data}
   end
 
