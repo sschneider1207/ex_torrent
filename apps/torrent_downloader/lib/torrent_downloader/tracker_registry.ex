@@ -5,7 +5,6 @@ defmodule TorrentDownloader.TrackerRegistry do
   """
 
   alias TorrentDownloader.{Torrent, Tracker}
-  alias TrackerClient.AnnounceResponse
 
   @doc """
   Starts a new tracker registry process.
@@ -24,14 +23,24 @@ defmodule TorrentDownloader.TrackerRegistry do
   end
 
   @doc """
-  All trackers registered under `info_hash` start making announcements using the provided
-  params as initial announcement parameters.
+  All trackers registered under `info_hash` start making announcements.
   """
   @spec start_announcing(Torrent.info_hash) :: :ok
   def start_announcing(info_hash) do
     Registry.lookup(__MODULE__, info_hash)
     |> Enum.map(fn {pid, _val} -> pid end)
     |> Enum.each(&Tracker.start_announcing/1)
+    :ok
+  end
+
+  @doc """
+  All trackers registered under `info_hash` stop making announcements.
+  """
+  @spec stop_announcing(Torrent.info_hash) :: :ok
+  def stop_announcing(info_hash) do
+    Registry.lookup(__MODULE__, info_hash)
+    |> Enum.map(fn {pid, _val} -> pid end)
+    |> Enum.each(&Tracker.stop_announcing/1)
     :ok
   end
 end

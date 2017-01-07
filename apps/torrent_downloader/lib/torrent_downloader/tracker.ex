@@ -85,6 +85,9 @@ defmodule TorrentDownloader.Tracker do
         {:next_state, {:not_working, reason}, data}
     end
   end
+  def handle_event(:cast, :start_announcing, _, _data) do
+    :keep_state_and_data
+  end
   def handle_event(:cast, :stop_announcing, :not_started, _data) do
     :keep_state_and_data
   end

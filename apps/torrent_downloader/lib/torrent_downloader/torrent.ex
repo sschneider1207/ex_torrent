@@ -167,6 +167,7 @@ defmodule TorrentDownloader.Torrent do
     :keep_state_and_data
   end
   def handle_event(:cast, :stop, state, data) when state in [:seeding, :leeching] do
+    TrackerRegistry.stop_announcing(data.info_hash)
     {:next_state, :not_running, data}
   end
   def handle_event(:info, {:init_trackers, parent}, :trackers_not_started, data) do
