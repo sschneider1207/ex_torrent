@@ -15,13 +15,14 @@ defmodule TorrentDownloader.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :torrex, :tracker_client, :gen_stage],
+    [applications: [:logger, :torrex, :tracker_client, :gen_peer, :gen_stage],
      mod: {TorrentDownloader, []}]
   end
 
   defp deps do
     [{:torrex, in_umbrella: true},
      {:tracker_client, in_umbrella: true},
+     {:gen_peer, in_umbrella: true},
      {:gen_stage, "~> 0.10.0"}]
   end
 end

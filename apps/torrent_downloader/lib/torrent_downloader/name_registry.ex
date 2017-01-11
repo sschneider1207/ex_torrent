@@ -49,6 +49,12 @@ defmodule TorrentDownloader.NameRegistry do
 
   @doc false
   @spec peer_pool_via(Torrent.info_hash) :: via
+  def peer_swarm_via(info_hash) do
+    {:via, Registry, {__MODULE__, {:peer_swarm, info_hash}}}
+  end
+
+  @doc false
+  @spec peer_pool_via(Torrent.info_hash) :: via
   def peer_pool_via(info_hash) do
     {:via, Registry, {__MODULE__, {:peer_pool, info_hash}}}
   end

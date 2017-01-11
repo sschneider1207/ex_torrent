@@ -3,7 +3,7 @@ defmodule TorrentDownloader.TorrentSupervisor do
   Process that supervises any process related to a specific torrent.
   """
   use Supervisor
-  alias TorrentDownloader.{PeerPool, PeerSupervisor, Torrent, TrackerSupervisor}
+  alias TorrentDownloader.{PeerSwarm, Torrent, TrackerSupervisor}
   require Logger
 
   @doc """
@@ -24,9 +24,8 @@ defmodule TorrentDownloader.TorrentSupervisor do
     info_hash = info_hash(torrent["info"])
     children = [
       supervisor(TrackerSupervisor, [info_hash]),
-      supervisor(PeerSupervisor, [info_hash, peer_id]),
       worker(Torrent, [info_hash, torrent, completion_dir, peer_id]),
-      worker(PeerPool, [info_hash, peer_id]),
+      worker(PeerSwarm, [info_hash, peer_id]),
     ]
 
     supervise(children, strategy: :one_for_all)
